@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=./quartz/plugins/quartz-plugins.schema.json
 configuration:
-  pageTitle: Digital Garden
+  pageTitle: Mobile Garden
   pageTitleSuffix: ""
   enableSPA: true
   enablePopovers: true
   analytics:
     provider: null
   locale: vi-VN
-  baseUrl: lynhuantung.github.io/quartz-garden
+  baseUrl: lynhuantung.github.io/quartz-mobile
   ignorePatterns:
     - private
     - templates

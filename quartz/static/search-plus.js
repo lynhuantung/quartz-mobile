@@ -759,7 +759,7 @@
   }
   var TRAIL_KEY = "tl-trail"
   var WHY_KEY = "tl-why"
-  var REL_TEXT = ["có liên kết trực tiếp", "có hàng xóm chung", "thường được dẫn cùng nhau", "nội dung tương đồng, nên đối chiếu"]
+  var REL_TEXT = ["hai ghi chú liên kết thẳng tới nhau", "cùng dẫn tới mấy ghi chú giống nhau", "hay được nhắc cùng nhau", "nội dung gần nhau, nên đọc đối chiếu"]
   var G = null
   var whyOf = {}
   var commLabel = {}
@@ -936,7 +936,7 @@
       })
       var f = from.get(s2)
       var srcTitle = G.title[G.idx.get(f[0])]
-      return [s2, "Liên quan tới «" + srcTitle + "»: " + REL_TEXT[f[1]]]
+      return [s2, "Gần với «" + srcTitle + "» bạn vừa đọc: " + REL_TEXT[f[1]]]
     }
     if (mode === "bridge") {
       if (!G) return null
@@ -997,7 +997,24 @@
     var old = document.getElementById("tl-why")
     if (old) old.remove()
     if (!w || w.s !== currentSlug()) return
-    showTip(w.w)
+    // Đặt lý do ngay dưới tiêu đề, nằm trong dòng chữ: không che nội dung, đọc lúc nào cũng được.
+    var h = document.querySelector(".center .article-title") || document.querySelector(".article-title")
+    if (!h) return showTip(w.w)
+    var n = el("div", "tl-why-inline")
+    n.id = "tl-why"
+    n.setAttribute("role", "status")
+    var ic = el("span", "tl-why-icon")
+    ic.innerHTML = DICE_SVG.replace(/width="22" height="22"/, 'width="15" height="15"')
+    n.appendChild(ic)
+    n.appendChild(el("span", "tl-why-text", w.w))
+    var x = el("button", "tl-why-close", "×")
+    x.type = "button"
+    x.setAttribute("aria-label", "Ẩn lý do chọn ghi chú")
+    x.addEventListener("click", function () {
+      n.remove()
+    })
+    n.appendChild(x)
+    h.insertAdjacentElement("afterend", n)
   }
 
   // Lịch sử tự cắt còn MAX_HISTORY mục; khi mọi ứng viên đều đã xem, choose() tự bỏ qua lịch sử.
@@ -1580,7 +1597,10 @@
     if (seq !== st.seq) return
     var res = run(q.trim())
     var empty = !q.trim()
-    st.advanced = empty || res.advanced || folderSuggestions(q).length > 0
+    // Khi Quartz chưa lập xong chỉ mục (điện thoại mất 10–25 giây), lớp này trả kết quả thay.
+    var root = st.space.closest(".search")
+    var quartzPending = !!root && !quartzReady(root)
+    st.advanced = empty || quartzPending || res.advanced || folderSuggestions(q).length > 0
     st.label.textContent = "Ngẫu nhiên · " + res.items.length
     st.space.classList.toggle("tl-adv-active", st.advanced)
     st.panel.hidden = !st.advanced
@@ -1684,8 +1704,121 @@
     update(st)
   }
 
+  // ---------- mở khung tìm kiếm ngay, kể cả khi Quartz chưa lập xong chỉ mục ----------
+  // Quartz chỉ gắn sự kiện cho nút "Tìm" và Ctrl+K SAU KHI lập chỉ mục FlexSearch cho mọi ghi chú.
+  // Trên điện thoại việc này mất 10–25 giây; trong lúc đó bấm "Tìm" không có phản ứng gì.
+  // Lớp này mở khung ngay, báo đang tải, rồi chạy lại câu đã gõ khi Quartz sẵn sàng.
+  function quartzReady(root) {
+    return !!root.querySelector(".results-container")
+  }
+
+  function setLoading(root, on) {
+    var space = root.querySelector(".search-space")
+    if (!space) return
+    var n = space.querySelector(".tl-search-loading")
+    if (on && !n) {
+      n = el("div", "tl-search-loading", "Đang tải chỉ mục tìm kiếm đầy đủ…")
+      n.style.cssText = "padding:0.6rem 1rem;color:var(--gray);font-size:0.9rem"
+      space.appendChild(n)
+    }
+    if (n) n.hidden = !on
+  }
+
+  function earlyClose(root) {
+    var cont = root.querySelector(".search-container")
+    if (!cont) return
+    cont.classList.remove("active")
+    var sb = cont.closest(".sidebar")
+    if (sb) sb.style.zIndex = ""
+    var btn = root.querySelector(".search-button")
+    if (btn) btn.setAttribute("aria-expanded", "false")
+    setLoading(root, false)
+  }
+
+  function earlyOpen(root) {
+    var cont = root.querySelector(".search-container")
+    var input = root.querySelector(".search-bar")
+    if (!cont || !input) return
+    cont.classList.add("active")
+    var sb = cont.closest(".sidebar")
+    if (sb) sb.style.zIndex = "9999"
+    var btn = root.querySelector(".search-button")
+    if (btn) btn.setAttribute("aria-expanded", "true")
+    setLoading(root, true)
+    input.focus()
+    if (root.__tlWait) return
+    root.__tlWait = setInterval(function () {
+      if (!document.contains(root)) {
+        clearInterval(root.__tlWait)
+        root.__tlWait = null
+        return
+      }
+      if (!quartzReady(root)) return
+      clearInterval(root.__tlWait)
+      root.__tlWait = null
+      setLoading(root, false)
+      if (!cont.classList.contains("active")) return
+      // Giao lại cho Quartz: mở bằng handler thật rồi chạy câu đã gõ.
+      var q = input.value
+      if (btn) btn.click()
+      if (input.value !== q) input.value = q
+      input.focus()
+      if (q) input.dispatchEvent(new Event("input", { bubbles: true }))
+    }, 250)
+  }
+
+  function bindEarlyOpen() {
+    document.querySelectorAll(".search").forEach(function (root) {
+      if (root.__tlEarly) return
+      root.__tlEarly = true
+      var btn = root.querySelector(".search-button")
+      var cont = root.querySelector(".search-container")
+      if (btn)
+        btn.addEventListener(
+          "click",
+          function (e) {
+            if (quartzReady(root)) return
+            e.preventDefault()
+            e.stopPropagation()
+            earlyOpen(root)
+          },
+          true,
+        )
+      if (cont)
+        cont.addEventListener("click", function (e) {
+          if (!quartzReady(root) && e.target === cont) earlyClose(root)
+        })
+    })
+    if (document.__tlEarlyKeys) return
+    document.__tlEarlyKeys = true
+    document.addEventListener(
+      "keydown",
+      function (e) {
+        var roots = Array.prototype.slice.call(document.querySelectorAll(".search")).filter(function (r) {
+          return !quartzReady(r)
+        })
+        if (!roots.length) return
+        if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+          var vis =
+            roots.filter(function (r) {
+              var b = r.querySelector(".search-button")
+              return b && b.offsetParent !== null
+            })[0] || roots[0]
+          e.preventDefault()
+          var c = vis.querySelector(".search-container")
+          if (c && c.classList.contains("active")) earlyClose(vis)
+          else earlyOpen(vis)
+        } else if (e.key === "Escape") {
+          roots.forEach(earlyClose)
+        }
+      },
+      true,
+    )
+  }
+
   function mount() {
     if (!document.body) return
+    bindEarlyOpen()
     showPageCode()
     linkReleaseNotes()
     trackUse()

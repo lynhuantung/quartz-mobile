@@ -8,6 +8,10 @@ Quy ước (đọc bởi scripts/sync-vault.mjs, hiện ở đầu trang Nhật 
 - Thay đổi chỉ ở ghi chú (vault) KHÔNG ghi ở đây; phần đó đã tự có trong Nhật ký phát hành.
 -->
 
+## 2026.11.24-3 · 24/11/2026
+- Tự đọc và tự chuyển ghi chú ngẫu nhiên: màn hình điện thoại không còn tự tắt giữa chừng làm dừng đọc; máy giữ màn hình sáng đến khi đọc đủ số ghi chú.
+- Bảng tùy chọn (giữ lâu nút Ngẫu nhiên) có thêm "Số phút tối đa" giữ màn hình sáng (mặc định 60 phút, 0 là không giữ).
+
 ## 2026.11.22-7 · 22/11/2026
 - Bảng tùy chọn nút Ngẫu nhiên: chỉnh được số ghi chú tự chuyển tối đa (mặc định 20, ví dụ 40; từ 1 đến 200) bằng nút −/+ hoặc gõ số; máy nhớ con số này.
 
